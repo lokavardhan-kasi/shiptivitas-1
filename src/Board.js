@@ -21,6 +21,37 @@ export default class Board extends React.Component {
       complete: React.createRef(),
     }
   }
+  componentDidMount() {
+  const containers = [
+    this.swimlanes.backlog.current,
+    this.swimlanes.inProgress.current,
+    this.swimlanes.complete.current,
+  ];
+
+  this.drake = Dragula(containers, {
+    revertOnSpill: true,
+  });
+
+ this.drake.on('drop', (el, target, source, sibling) => {
+  const id = el.getAttribute('data-id');
+
+  let newStatus = 'backlog';
+
+  if (target === this.swimlanes.inProgress.current) {
+    newStatus = 'in-progress';
+  } else if (target === this.swimlanes.complete.current) {
+    newStatus = 'complete';
+  }
+
+  
+  const children = Array.from(target.children);
+  const newIndex = children.indexOf(el);
+
+  this.drake.cancel(true);
+
+  this.moveClientWithOrder(id, newStatus, newIndex);
+});
+}
   getClients() {
     return [
       ['1','Stark, White and Abbott','Cloned Optimal Architecture', 'in-progress'],
@@ -50,6 +81,39 @@ export default class Board extends React.Component {
       status: companyDetails[3],
     }));
   }
+ moveClientWithOrder(id, newStatus, newIndex) {
+  let allClients = [
+    ...this.state.clients.backlog,
+    ...this.state.clients.inProgress,
+    ...this.state.clients.complete,
+  ];
+
+  const movedClient = allClients.find(c => c.id === id);
+
+ 
+  allClients = allClients.filter(c => c.id !== id);
+
+  movedClient.status = newStatus;
+
+  const grouped = {
+    backlog: [],
+    inProgress: [],
+    complete: [],
+  };
+
+  allClients.forEach(c => {
+    if (!c.status || c.status === 'backlog') grouped.backlog.push(c);
+    else if (c.status === 'in-progress') grouped.inProgress.push(c);
+    else grouped.complete.push(c);
+  });
+
+
+  if (newStatus === 'backlog') grouped.backlog.splice(newIndex, 0, movedClient);
+  if (newStatus === 'in-progress') grouped.inProgress.splice(newIndex, 0, movedClient);
+  if (newStatus === 'complete') grouped.complete.splice(newIndex, 0, movedClient);
+
+  this.setState({ clients: grouped });
+}
   renderSwimlane(name, clients, ref) {
     return (
       <Swimlane name={name} clients={clients} dragulaRef={ref}/>
